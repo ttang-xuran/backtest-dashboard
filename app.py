@@ -22,7 +22,7 @@ from comprehensive_backtest import ComprehensiveBacktester
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'backtest_dashboard_2024'
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet', logger=True, engineio_logger=True)
 
 # Global variables for data sharing
 backtest_data = {
@@ -47,6 +47,11 @@ def dashboard():
 def get_data():
     """API endpoint to get current backtest data"""
     return jsonify(backtest_data)
+
+@app.route('/api/health')
+def health_check():
+    """Health check endpoint"""
+    return jsonify({'status': 'ok', 'socketio': 'ready'})
 
 @socketio.on('connect')
 def handle_connect():

@@ -273,8 +273,14 @@
     </div>
 
     <script>
-        // Initialize Socket.IO connection
-        const socket = io();
+        // Initialize Socket.IO connection with better configuration for Railway
+        const socket = io({
+            transports: ['websocket', 'polling'],
+            upgrade: true,
+            rememberUpgrade: true,
+            timeout: 20000,
+            forceNew: true
+        });
         
         // Chart configurations
         Chart.defaults.color = '#ffffff';
@@ -415,11 +421,23 @@
         
         // Socket.IO event handlers
         socket.on('connect', function() {
+            console.log('Socket.IO connected successfully');
             updateConnectionStatus('Connected', true);
         });
         
         socket.on('disconnect', function() {
+            console.log('Socket.IO disconnected');
             updateConnectionStatus('Disconnected', false);
+        });
+        
+        socket.on('connect_error', function(error) {
+            console.error('Socket.IO connection error:', error);
+            updateConnectionStatus('Connection Error', false);
+        });
+        
+        socket.on('reconnect', function() {
+            console.log('Socket.IO reconnected');
+            updateConnectionStatus('Reconnected', true);
         });
         
         socket.on('data_update', function(data) {
