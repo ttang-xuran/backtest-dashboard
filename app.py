@@ -22,7 +22,7 @@ from comprehensive_backtest import ComprehensiveBacktester
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'backtest_dashboard_2024'
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet', logger=True, engineio_logger=True)
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 # Global variables for data sharing
 backtest_data = {
@@ -382,4 +382,5 @@ if __name__ == '__main__':
     print("🌐 Dashboard will be accessible to others on your network")
     
     # Run the Flask-SocketIO app
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    socketio.run(app, host='0.0.0.0', port=port, debug=False)

@@ -273,12 +273,9 @@
     </div>
 
     <script>
-        // Initialize Socket.IO connection with better configuration for Railway
+        // Initialize Socket.IO connection - simplified for Railway
         const socket = io({
-            transports: ['websocket', 'polling'],
-            upgrade: true,
-            rememberUpgrade: true,
-            timeout: 20000,
+            transports: ['polling', 'websocket'],
             forceNew: true
         });
         
