@@ -327,6 +327,9 @@
                     data: [],
                     borderColor: '#667eea',
                     backgroundColor: function(context) {
+                        if (!context.parsed || context.parsed.y === undefined) {
+                            return 'rgba(74, 222, 128, 0.1)';
+                        }
                         const value = context.parsed.y;
                         return value >= 0 ? 'rgba(74, 222, 128, 0.1)' : 'rgba(248, 113, 113, 0.1)';
                     },
