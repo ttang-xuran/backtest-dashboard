@@ -10,6 +10,12 @@ backtest_env/
 .env
 .venv
 
+# Security - Never commit credentials
+config_real.json
+*_credentials.json
+.env.local
+private_config.json
+
 # IDE
 .vscode/
 .idea/

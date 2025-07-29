@@ -1,7 +1,7 @@
 {
-    "_comment_credentials": "=== API CREDENTIALS ===",
-    "account_address": "0x0440B9e8FB10E3d133bc1fD401744e944fbf1fb2",
-    "secret_key": "0xa7a9728c0bd1f25c014287896dbff40e70b771950a345cf6607d10717947c847",
+    "_comment_credentials": "=== API CREDENTIALS (REMOVED FOR SECURITY) ===",
+    "account_address": "YOUR_PUBLIC_KEY_HERE",
+    "secret_key": "YOUR_PRIVATE_KEY_HERE",
     
     "_comment_position_sizing": "=== POSITION SIZING (50% Account Capital) ===",
     "position_size": 0.15,

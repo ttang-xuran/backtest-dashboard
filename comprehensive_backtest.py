@@ -80,91 +80,59 @@ class ComprehensiveBacktester:
             return {}
 
     async def fetch_hyperliquid_data(self, days: int = 30) -> pd.DataFrame:
-        """Fetch real historical data from Hyperliquid"""
-        if not HYPERLIQUID_AVAILABLE:
-            self.logger.warning("Hyperliquid package not available, using simulated data")
-            return self.generate_sample_data(days, "normal")
+        """Generate realistic market data (no credentials needed for public dashboard)"""
+        self.logger.info(f"Generating {days} days of realistic market data for public dashboard...")
         
-        try:
-            # Initialize Hyperliquid client (read-only, no credentials needed for market data)
-            hl = HyperliquidAsync({})
+        # Use realistic current market prices (no API needed)
+        btc_current = 117800.0  # Realistic BTC price
+        eth_current = 3760.0    # Realistic ETH price
+        
+        self.logger.info(f"Using realistic prices: BTC=${btc_current:.2f}, ETH=${eth_current:.2f}")
+        
+        # Calculate time range for historical data
+        end_time = datetime.now()
+        start_time = end_time - timedelta(days=days)
+        
+        # Generate timestamps (1-minute intervals for realistic trading frequency)
+        timestamps = pd.date_range(start=start_time, end=end_time, freq='1min')
+        
+        # Generate realistic price movements based on actual market patterns
+        np.random.seed(42)  # For reproducible results
+        
+        btc_prices = [btc_current]
+        eth_prices = [eth_current]
+        
+        # Generate realistic price movements
+        for i in range(1, len(timestamps)):
+            # Add realistic volatility (approximately 2% daily volatility)
+            btc_change = np.random.normal(0, 0.0015)  # ~0.15% per minute
+            eth_change = np.random.normal(0, 0.0015)
             
-            self.logger.info(f"Fetching {days} days of real market data from Hyperliquid...")
+            # Add correlation between BTC and ETH (typical ~75%)
+            correlation = 0.75
+            eth_change = correlation * btc_change + np.sqrt(1 - correlation**2) * eth_change
             
-            # Get current prices to establish realistic price levels
-            try:
-                tickers = await hl.fetch_tickers()
-                btc_current = None
-                eth_current = None
-                
-                for symbol, ticker in tickers.items():
-                    if 'BTC' in symbol and 'USD' in symbol:
-                        btc_current = float(ticker['close'])
-                    elif 'ETH' in symbol and 'USD' in symbol:
-                        eth_current = float(ticker['close'])
-                
-                if not btc_current or not eth_current:
-                    raise Exception("Could not fetch current prices")
-                    
-                self.logger.info(f"Current prices: BTC=${btc_current:.2f}, ETH=${eth_current:.2f}")
-                
-            except Exception as e:
-                self.logger.warning(f"Could not fetch real prices: {e}. Using simulated data.")
-                await hl.close()
-                return self.generate_sample_data(days, "normal")
+            # Apply changes
+            new_btc = btc_prices[-1] * (1 + btc_change)
+            new_eth = eth_prices[-1] * (1 + eth_change)
             
-            # Calculate time range for historical data
-            end_time = datetime.now()
-            start_time = end_time - timedelta(days=days)
-            
-            # Generate timestamps (1-minute intervals to match realistic trading frequency)
-            timestamps = pd.date_range(start=start_time, end=end_time, freq='1min')
-            
-            # Since Hyperliquid historical data access may be limited,
-            # we'll create realistic data based on current prices and typical patterns
-            np.random.seed(42)  # For reproducible results
-            
-            btc_prices = [btc_current]
-            eth_prices = [eth_current]
-            
-            # Generate realistic price movements
-            for i in range(1, len(timestamps)):
-                # Add realistic volatility (approximately 2% daily volatility)
-                btc_change = np.random.normal(0, 0.0015)  # ~0.15% per minute
-                eth_change = np.random.normal(0, 0.0015)
-                
-                # Add correlation between BTC and ETH (typical ~75%)
-                correlation = 0.75
-                eth_change = correlation * btc_change + np.sqrt(1 - correlation**2) * eth_change
-                
-                # Apply changes
-                new_btc = btc_prices[-1] * (1 + btc_change)
-                new_eth = eth_prices[-1] * (1 + eth_change)
-                
-                btc_prices.append(new_btc)
-                eth_prices.append(new_eth)
-            
-            await hl.close()
-            
-            # Calculate returns
-            btc_returns = [0] + [(btc_prices[i] - btc_prices[i-1]) / btc_prices[i-1] for i in range(1, len(btc_prices))]
-            eth_returns = [0] + [(eth_prices[i] - eth_prices[i-1]) / eth_prices[i-1] for i in range(1, len(eth_prices))]
-            
-            df = pd.DataFrame({
-                'timestamp': timestamps,
-                'btc_price': btc_prices,
-                'eth_price': eth_prices,
-                'btc_return': btc_returns,
-                'eth_return': eth_returns
-            })
-            
-            self.logger.info(f"Successfully created {len(df)} data points based on Hyperliquid current prices")
-            return df
-            
-        except Exception as e:
-            self.logger.error(f"Error fetching Hyperliquid data: {e}")
-            self.logger.info("Falling back to simulated data")
-            return self.generate_sample_data(days, "normal")
+            btc_prices.append(new_btc)
+            eth_prices.append(new_eth)
+        
+        # Calculate returns
+        btc_returns = [0] + [(btc_prices[i] - btc_prices[i-1]) / btc_prices[i-1] for i in range(1, len(btc_prices))]
+        eth_returns = [0] + [(eth_prices[i] - eth_prices[i-1]) / eth_prices[i-1] for i in range(1, len(eth_prices))]
+        
+        df = pd.DataFrame({
+            'timestamp': timestamps,
+            'btc_price': btc_prices,
+            'eth_price': eth_prices,
+            'btc_return': btc_returns,
+            'eth_return': eth_returns
+        })
+        
+        self.logger.info(f"Successfully created {len(df)} realistic data points for public dashboard")
+        return df
 
     def generate_sample_data(self, days: int = 30, volatility_regime: str = "normal") -> pd.DataFrame:
         """Generate realistic sample data with different market regimes"""
