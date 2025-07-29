@@ -377,7 +377,7 @@ if __name__ == '__main__':
     # Setup logging
     logging.basicConfig(level=logging.INFO)
     
-    print("🚀 Starting Backtest Dashboard")
+    print("🚀 Starting Backtest Dashboard - Updated Version")
     print("📊 Access the dashboard at: http://localhost:5000")
     print("🌐 Dashboard will be accessible to others on your network")
     
