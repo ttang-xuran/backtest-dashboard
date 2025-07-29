@@ -1,0 +1,32 @@
+{
+    "_comment_credentials": "=== API CREDENTIALS ===",
+    "account_address": "0x0440B9e8FB10E3d133bc1fD401744e944fbf1fb2",
+    "secret_key": "0xa7a9728c0bd1f25c014287896dbff40e70b771950a345cf6607d10717947c847",
+    
+    "_comment_position_sizing": "=== POSITION SIZING (50% Account Capital) ===",
+    "position_size": 0.15,
+    "_note_position_size": "15% per asset = 30% total exposure (IMPROVED - was 25%)",
+    "max_position_size": 0.15,
+    "_note_max_position": "Maximum 15% per asset for better risk control",
+    
+    "_comment_strategy": "=== IMPROVED STRATEGY PARAMETERS ===",
+    "z_score_entry": 2.0,
+    "_note_z_entry": "IMPROVED: Higher threshold for better signals (was 1.5)",
+    "z_score_exit": 0.5,
+    "_note_z_exit": "IMPROVED: Let profits run longer (was 0.3)",
+    "lookback_period": 40,
+    
+    "_comment_risk_management": "=== RISK MANAGEMENT (Enhanced for 50% Exposure) ===",
+    "max_daily_loss": 0.05,
+    "_note_daily_loss": "5% daily loss limit (increased from 2% due to higher exposure)",
+    "stop_loss_pct": 0.02,
+    "_note_stop_loss": "2% stop loss (tighter than default 5% for risk control)",
+    "max_drawdown": 0.10,
+    "max_open_positions": 1,
+    "_note_max_positions": "Only 1 position at a time (pairs trade = BTC + ETH)",
+    "max_daily_trades": 10,
+    
+    "_comment_cointegration": "=== COINTEGRATION SETTINGS ===",
+    "correlation_threshold": 0.7,
+    "cointegration_check_hours": 24
+}
