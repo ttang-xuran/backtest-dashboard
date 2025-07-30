@@ -28,47 +28,48 @@ class ComprehensiveBacktester:
         """Initialize comprehensive backtester with ALL improvements"""
         self.config = self.load_config(config_path)
         
-        # IMPROVED STRATEGY PARAMETERS (as per PERFORMANCE_IMPROVEMENTS.md)
-        self.position_pct = 0.15        # Reduced from 25% to 15% per asset (30% total vs 50%)
-        self.z_entry = 1.8              # Increased from 1.5 to 1.8 (higher conviction, but tradeable)
-        self.z_exit = 0.5               # Increased from 0.3 to 0.5 (let profits run)
-        self.lookback = 40              # Increased from 20 to 40 (more stable statistics)
+        # OPTIMIZED STRATEGY PARAMETERS (reduced overtrading focus)
+        self.position_pct = 0.08        # Reduced from 15% to 8% per asset (16% total vs 30%) - lower risk
+        self.z_entry = 2.5              # Increased from 1.8 to 2.5 (much higher conviction, fewer trades)
+        self.z_exit = 0.8               # Increased from 0.5 to 0.8 (let profits run longer)
+        self.lookback = 60              # Increased from 40 to 60 (more stable statistics)
         
-        # ENHANCED RISK MANAGEMENT
+        # ENHANCED RISK MANAGEMENT (anti-overtrading focus)
         self.stop_loss_pct = 0.03       # 3% stop loss protection
-        self.max_holding_minutes = 120  # Maximum 2-hour holding periods
-        self.min_holding_minutes = 30   # Minimum 30 minutes to avoid noise
-        self.daily_trade_limit = 10     # Maximum 10 trades per day
+        self.max_holding_minutes = 240  # Maximum 4-hour holding periods (increased)
+        self.min_holding_minutes = 120  # Minimum 2 hours to avoid noise (increased)
+        self.daily_trade_limit = 3      # Maximum 3 trades per day (reduced from 10)
         
         # IMPROVED TRADING COSTS
         self.fee = 0.0003               # Reduced from 0.05% to 0.03% (achievable with volume)
         
-        # MARKET REGIME AWARENESS
-        self.volatility_threshold = 0.05    # Don't trade in very high volatility periods (5% per 30s)
-        self.correlation_min = 0.4          # Minimum BTC-ETH correlation required
-        self.beta_min = 0.3                 # Minimum beta (prevent extreme ratios)
-        self.beta_max = 2.0                 # Maximum beta (prevent extreme ratios)
+        # STRICTER MARKET REGIME AWARENESS (quality over quantity)
+        self.volatility_threshold = 0.03    # Don't trade in high volatility periods (3% per 30s - stricter)
+        self.correlation_min = 0.6          # Minimum BTC-ETH correlation required (increased for stability)
+        self.beta_min = 0.5                 # Minimum beta (prevent extreme ratios)
+        self.beta_max = 1.8                 # Maximum beta (tighter range for stability)
         
         # TRACKING VARIABLES
         self.trades = []
         self.daily_trades = {}
         self.portfolio_history = []
         
-        # ENHANCED BETA CALCULATION
-        self.beta_lookback = 60         # Longer lookback for stable beta (vs 20)
+        # ENHANCED BETA CALCULATION (increased stability)
+        self.beta_lookback = 120        # Much longer lookback for stable beta (vs 60)
         
         # SETUP LOGGING
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
         
-        self.logger.info("🚀 Comprehensive Backtester Initialized with ALL Improvements:")
-        self.logger.info(f"   Position Size: {self.position_pct*100}% per asset ({self.position_pct*2*100}% total)")
-        self.logger.info(f"   Entry Z-Score: {self.z_entry} (higher conviction)")
-        self.logger.info(f"   Exit Z-Score: {self.z_exit} (let profits run)")
-        self.logger.info(f"   Lookback Period: {self.lookback} (more stable)")
-        self.logger.info(f"   Trading Fee: {self.fee*100:.3f}% (reduced cost)")
-        self.logger.info(f"   Daily Trade Limit: {self.daily_trade_limit}")
-        self.logger.info(f"   Stop Loss: {self.stop_loss_pct*100}%")
+        self.logger.info("🚀 OPTIMIZED Statistical Arbitrage Strategy - Anti-Overtrading Focus:")
+        self.logger.info(f"   Position Size: {self.position_pct*100}% per asset ({self.position_pct*2*100}% total) [REDUCED RISK]")
+        self.logger.info(f"   Entry Z-Score: {self.z_entry} (much higher conviction = fewer trades)")
+        self.logger.info(f"   Exit Z-Score: {self.z_exit} (let profits run longer)")
+        self.logger.info(f"   Lookback Period: {self.lookback} (more stable statistics)")
+        self.logger.info(f"   Daily Trade Limit: {self.daily_trade_limit} [REDUCED FROM 10]")
+        self.logger.info(f"   Min Holding Time: {self.min_holding_minutes} minutes [INCREASED]")
+        self.logger.info(f"   Correlation Min: {self.correlation_min} [STRICTER]")
+        self.logger.info(f"   Expected Trades: ~50-90 per month (vs 600+ before)")
 
     def load_config(self, config_path: str) -> dict:
         """Load configuration with fallback to defaults"""
