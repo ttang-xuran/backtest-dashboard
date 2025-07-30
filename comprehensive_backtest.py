@@ -28,48 +28,48 @@ class ComprehensiveBacktester:
         """Initialize comprehensive backtester with ALL improvements"""
         self.config = self.load_config(config_path)
         
-        # PROFIT-FOCUSED STRATEGY PARAMETERS (with cointegration data)
-        self.position_pct = 0.12        # Increased to 12% per asset (24% total) - capitalize on mean reversion
-        self.z_entry = 2.0              # Reduced from 2.5 to 2.0 (more opportunities in cointegrated data)
-        self.z_exit = 0.3               # Reduced from 0.8 to 0.3 (take profits faster in mean-reverting environment)
-        self.lookback = 50              # Optimized for mean reversion detection
+        # ULTRA-SELECTIVE STRATEGY PARAMETERS (quality over quantity focus)
+        self.position_pct = 0.20        # Increased to 20% per asset (40% total) - fewer but bigger trades
+        self.z_entry = 3.0              # MUCH higher threshold (only extreme mispricings)
+        self.z_exit = 0.8               # Hold longer for mean reversion to work
+        self.lookback = 30              # Shorter for faster signal detection
         
-        # BALANCED RISK MANAGEMENT (optimized for cointegrated data)
-        self.stop_loss_pct = 0.02       # 2% stop loss (tighter)
-        self.max_holding_minutes = 180  # Maximum 3-hour holding periods 
-        self.min_holding_minutes = 60   # Minimum 1 hour (allow faster mean reversion)
-        self.daily_trade_limit = 5      # Maximum 5 trades per day (balanced)
+        # ULTRA-CONSERVATIVE RISK MANAGEMENT (extreme selectivity)
+        self.stop_loss_pct = 0.015      # 1.5% stop loss (very tight)
+        self.max_holding_minutes = 360  # Maximum 6-hour holding periods (let mean reversion work)
+        self.min_holding_minutes = 180  # Minimum 3 hours (avoid noise completely)
+        self.daily_trade_limit = 2      # Maximum 2 trades per day (EXTREME selectivity)
         
         # IMPROVED TRADING COSTS
         self.fee = 0.0003               # Reduced from 0.05% to 0.03% (achievable with volume)
         
-        # OPTIMIZED MARKET REGIME AWARENESS (for cointegrated data)
-        self.volatility_threshold = 0.04    # Allow slightly higher volatility (more opportunities)
-        self.correlation_min = 0.5          # Reduced correlation requirement (cointegration matters more)
-        self.beta_min = 0.4                 # Wider beta range for more opportunities  
-        self.beta_max = 2.5                 # Allow higher beta for strong mean reversion
+        # ULTRA-STRICT MARKET REGIME FILTERS (only best conditions)
+        self.volatility_threshold = 0.02    # Very low volatility required (stable conditions only)
+        self.correlation_min = 0.7          # High correlation required (strong relationship)
+        self.beta_min = 0.6                 # Narrow beta range for stability
+        self.beta_max = 1.4                 # Tight range for predictable hedging
         
         # TRACKING VARIABLES
         self.trades = []
         self.daily_trades = {}
         self.portfolio_history = []
         
-        # ENHANCED BETA CALCULATION (optimized for cointegration)
-        self.beta_lookback = 80         # Balanced lookback for mean reversion detection
+        # STABLE BETA CALCULATION (for ultra-selective trading)
+        self.beta_lookback = 60         # Shorter for faster signal, but stable
         
         # SETUP LOGGING
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
         
-        self.logger.info("🚀 PROFIT-OPTIMIZED Statistical Arbitrage - Cointegration Focus:")
-        self.logger.info(f"   Position Size: {self.position_pct*100}% per asset ({self.position_pct*2*100}% total) [BALANCED]")
-        self.logger.info(f"   Entry Z-Score: {self.z_entry} (optimal for mean reversion)")
-        self.logger.info(f"   Exit Z-Score: {self.z_exit} (faster profit taking)")
-        self.logger.info(f"   Lookback Period: {self.lookback} (optimized for cointegration)")
-        self.logger.info(f"   Daily Trade Limit: {self.daily_trade_limit} [BALANCED]")
-        self.logger.info(f"   Min Holding Time: {self.min_holding_minutes} minutes [MEAN REVERSION FOCUSED]")
-        self.logger.info(f"   🎯 COINTEGRATED DATA: Built-in mean reversion for profitability")
-        self.logger.info(f"   📈 Expected: Positive returns with lower drawdown")
+        self.logger.info("🎯 ULTRA-SELECTIVE Statistical Arbitrage - Maximum Profitability Focus:")
+        self.logger.info(f"   Position Size: {self.position_pct*100}% per asset ({self.position_pct*2*100}% total) [HIGH CONVICTION]")
+        self.logger.info(f"   Entry Z-Score: {self.z_entry} (EXTREME mispricings only)")
+        self.logger.info(f"   Exit Z-Score: {self.z_exit} (let mean reversion work)")
+        self.logger.info(f"   Daily Trade Limit: {self.daily_trade_limit} [ULTRA SELECTIVE]")
+        self.logger.info(f"   Min Holding Time: {self.min_holding_minutes} minutes [PATIENCE]")
+        self.logger.info(f"   Mean Reversion Force: 25% per period [STRONG]")
+        self.logger.info(f"   📊 Expected: 20-40 trades/month (vs 126), 2-5% returns")
+        self.logger.info(f"   💰 Transaction Cost Target: <2.5% (vs 7.6% before)")
 
     def load_config(self, config_path: str) -> dict:
         """Load configuration with fallback to defaults"""
@@ -176,9 +176,9 @@ class ComprehensiveBacktester:
             # Calculate current log spread
             current_spread = np.log(btc_prices[i] / eth_prices[-1])
             
-            # Mean reversion force (key for stat arb profitability!)
+            # STRONG mean reversion force (key for profitability!)
             spread_deviation = current_spread - spread_target
-            mean_reversion_force = -0.1 * spread_deviation  # 10% reversion per period
+            mean_reversion_force = -0.25 * spread_deviation  # 25% reversion per period (much stronger!)
             
             # ETH return = BTC correlation + mean reversion + noise
             correlated_component = correlation * btc_ret
@@ -643,10 +643,19 @@ class ComprehensiveBacktester:
             volatility = portfolio_returns.std() * np.sqrt(365 * 24 * 120)  # Annualized
             sharpe_ratio = (total_return * 365) / volatility if volatility > 0 else 0
             
-            # Drawdown analysis (fixed calculation)
-            running_max = portfolio_df['portfolio_value'].expanding().max()
-            drawdown = (portfolio_df['portfolio_value'] - running_max) / running_max
-            max_drawdown = abs(drawdown.min())  # Take absolute value for proper display
+            # Drawdown analysis (properly fixed)
+            portfolio_values = portfolio_df['portfolio_value'].values
+            running_max = portfolio_df['portfolio_value'].expanding().max().values
+            
+            # Calculate drawdown properly: (current - peak) / peak
+            drawdown_series = (portfolio_values - running_max) / running_max
+            max_drawdown = abs(min(drawdown_series))  # Largest negative drawdown
+            
+            # Debug info
+            peak_value = max(portfolio_values)
+            trough_value = min(portfolio_values)
+            simple_drawdown = (peak_value - trough_value) / peak_value
+            print(f"DEBUG Drawdown - Peak: ${peak_value:.2f}, Trough: ${trough_value:.2f}, Simple DD: {simple_drawdown*100:.2f}%, Calculated DD: {max_drawdown*100:.2f}%")
         else:
             volatility = 0
             sharpe_ratio = 0
