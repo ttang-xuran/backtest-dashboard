@@ -1,0 +1,26 @@
+{
+  "name": "Live Backtest Dashboard",
+  "description": "Real-time statistical arbitrage backtest monitoring dashboard",
+  "repository": "https://github.com/your-username/backtest-dashboard",
+  "keywords": ["flask", "socketio", "trading", "backtest", "dashboard"],
+  "image": "heroku/python",
+  "stack": "heroku-24",
+  "buildpacks": [
+    {
+      "url": "heroku/python"
+    }
+  ],
+  "env": {
+    "FLASK_ENV": {
+      "description": "Flask environment",
+      "value": "production"
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "eco"
+    }
+  },
+  "addons": []
+}

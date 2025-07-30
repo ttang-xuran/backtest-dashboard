@@ -160,18 +160,10 @@
             <div class="row align-items-center">
                 <div class="col-md-6">
                     <h5>Backtest Controls</h5>
-                    <div class="mb-3" style="max-width: 400px;">
-                        <div class="input-group mb-2">
-                            <span class="input-group-text">Days:</span>
-                            <input type="number" class="form-control" id="backtestDays" value="30" min="1" max="90">
-                            <button class="btn btn-primary" id="startBacktest">Start Backtest</button>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="contrarianMode" checked>
-                            <label class="form-check-label" for="contrarianMode">
-                                🔄 <strong>Contrarian Mode</strong> (Trade opposite signals)
-                            </label>
-                        </div>
+                    <div class="input-group mb-3" style="max-width: 300px;">
+                        <span class="input-group-text">Days:</span>
+                        <input type="number" class="form-control" id="backtestDays" value="30" min="1" max="90">
+                        <button class="btn btn-primary" id="startBacktest">Start Backtest</button>
                     </div>
                 </div>
                 <div class="col-md-6">
@@ -248,12 +240,7 @@
         <div class="row">
             <div class="col-md-8">
                 <div class="metric-card">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5>📋 Recent Trades</h5>
-                        <button id="downloadTrades" class="btn btn-success btn-sm">
-                            📥 Download CSV
-                        </button>
-                    </div>
+                    <h5>📋 Recent Trades</h5>
                     <div class="table-responsive">
                         <table class="table table-dark table-striped">
                             <thead>
@@ -286,11 +273,8 @@
     </div>
 
     <script>
-        // Initialize Socket.IO connection - simplified for Railway
-        const socket = io({
-            transports: ['polling', 'websocket'],
-            forceNew: true
-        });
+        // Initialize Socket.IO connection
+        const socket = io();
         
         // Chart configurations
         Chart.defaults.color = '#ffffff';
@@ -340,9 +324,6 @@
                     data: [],
                     borderColor: '#667eea',
                     backgroundColor: function(context) {
-                        if (!context.parsed || context.parsed.y === undefined) {
-                            return 'rgba(74, 222, 128, 0.1)';
-                        }
                         const value = context.parsed.y;
                         return value >= 0 ? 'rgba(74, 222, 128, 0.1)' : 'rgba(248, 113, 113, 0.1)';
                     },
@@ -434,23 +415,11 @@
         
         // Socket.IO event handlers
         socket.on('connect', function() {
-            console.log('Socket.IO connected successfully');
             updateConnectionStatus('Connected', true);
         });
         
         socket.on('disconnect', function() {
-            console.log('Socket.IO disconnected');
             updateConnectionStatus('Disconnected', false);
-        });
-        
-        socket.on('connect_error', function(error) {
-            console.error('Socket.IO connection error:', error);
-            updateConnectionStatus('Connection Error', false);
-        });
-        
-        socket.on('reconnect', function() {
-            console.log('Socket.IO reconnected');
-            updateConnectionStatus('Reconnected', true);
         });
         
         socket.on('data_update', function(data) {
@@ -469,67 +438,6 @@
             addStatusMessage(data.message, 'success');
             document.getElementById('startBacktest').disabled = false;
         });
-        
-        // CSV Download functionality
-        document.getElementById('downloadTrades').addEventListener('click', function() {
-            downloadTradesCSV();
-        });
-        
-        function downloadTradesCSV() {
-            // Get current trade data
-            fetch('/api/data')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.trades && data.trades.length > 0) {
-                        const csvContent = convertTradesToCSV(data.trades);
-                        downloadCSV(csvContent, 'backtest_trades.csv');
-                        addStatusMessage('Trades exported to CSV successfully!', 'success');
-                    } else {
-                        addStatusMessage('No trades available to export', 'warning');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error downloading trades:', error);
-                    addStatusMessage('Error downloading trades', 'danger');
-                });
-        }
-        
-        function convertTradesToCSV(trades) {
-            const headers = ['Timestamp', 'Action', 'Position', 'Z-Score', 'Beta', 'P&L', 'Return %', 'BTC Price', 'ETH Price', 'Exit Reason'];
-            const csvRows = [headers.join(',')];
-            
-            trades.forEach(trade => {
-                const row = [
-                    trade.timestamp || '',
-                    trade.action || '',
-                    trade.position || '',
-                    (trade.z_score || 0).toFixed(3),
-                    (trade.beta || 0).toFixed(3),
-                    (trade.pnl || 0).toFixed(2),
-                    ((trade.return_pct || 0) * 100).toFixed(3) + '%',
-                    (trade.btc_price || 0).toFixed(2),
-                    (trade.eth_price || 0).toFixed(2),
-                    trade.exit_reason || ''
-                ];
-                csvRows.push(row.join(','));
-            });
-            
-            return csvRows.join('\n');
-        }
-        
-        function downloadCSV(csvContent, filename) {
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            const url = URL.createObjectURL(blob);
-            
-            link.setAttribute('href', url);
-            link.setAttribute('download', filename);
-            link.style.visibility = 'hidden';
-            
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
         
         // UI Functions
         function updateConnectionStatus(status, isConnected) {
@@ -668,7 +576,6 @@
         // Start backtest button handler
         document.getElementById('startBacktest').addEventListener('click', function() {
             const days = parseInt(document.getElementById('backtestDays').value);
-            const contrarianMode = document.getElementById('contrarianMode').checked;
             
             if (days < 1 || days > 90) {
                 addStatusMessage('Please enter a valid number of days (1-90)', 'warning');
@@ -676,8 +583,7 @@
             }
             
             this.disabled = true;
-            addStatusMessage(`Starting ${contrarianMode ? 'CONTRARIAN' : 'traditional'} backtest for ${days} days...`, 'info');
-            socket.emit('start_backtest', { days: days, contrarian_mode: contrarianMode });
+            socket.emit('start_backtest', { days: days });
             
             // Clear existing data
             [portfolioChart, pnlChart, zscoreChart, betaChart].forEach(chart => {

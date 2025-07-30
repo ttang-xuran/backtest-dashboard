@@ -22,7 +22,7 @@ from comprehensive_backtest import ComprehensiveBacktester
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'backtest_dashboard_2024'
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Global variables for data sharing
 backtest_data = {
@@ -47,11 +47,6 @@ def dashboard():
 def get_data():
     """API endpoint to get current backtest data"""
     return jsonify(backtest_data)
-
-@app.route('/api/health')
-def health_check():
-    """Health check endpoint"""
-    return jsonify({'status': 'ok', 'socketio': 'ready'})
 
 @socketio.on('connect')
 def handle_connect():
@@ -87,30 +82,28 @@ def handle_start_backtest(data):
     }
     
     # Start backtest in separate thread
-    days = data.get('days', 30)
-    contrarian_mode = data.get('contrarian_mode', True)
-    backtest_thread = threading.Thread(target=run_backtest_async, args=(days, contrarian_mode))
+    backtest_thread = threading.Thread(target=run_backtest_async, args=(data.get('days', 30),))
     backtest_thread.daemon = True
     backtest_thread.start()
     
     emit('status', {'message': 'Backtest started'})
 
-def run_backtest_async(days, contrarian_mode=True):
+def run_backtest_async(days):
     """Run backtest in async context"""
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
-        loop.run_until_complete(run_live_backtest(days, contrarian_mode))
+        loop.run_until_complete(run_live_backtest(days))
     finally:
         loop.close()
 
-async def run_live_backtest(days=30, contrarian_mode=True):
+async def run_live_backtest(days=30):
     """Run backtest with live updates to dashboard"""
     global backtest_data
     
     try:
-        # Initialize backtester with contrarian mode
-        backtester = LiveBacktester(contrarian_mode=contrarian_mode)
+        # Initialize backtester
+        backtester = LiveBacktester()
         
         # Fetch data
         socketio.emit('status', {'message': f'Fetching {days} days of market data...'})
@@ -157,9 +150,6 @@ def update_dashboard(portfolio_point, trade=None, metrics=None, progress=0):
 
 class LiveBacktester(ComprehensiveBacktester):
     """Extended backtester for live dashboard updates"""
-    
-    def __init__(self, contrarian_mode=True):
-        super().__init__(contrarian_mode=contrarian_mode)
     
     async def run_live_backtest(self, data, update_callback=None):
         """Run backtest with live updates"""
@@ -382,10 +372,9 @@ if __name__ == '__main__':
     # Setup logging
     logging.basicConfig(level=logging.INFO)
     
-    print("🚀 Starting Backtest Dashboard - Updated Version")
+    print("🚀 Starting Backtest Dashboard")
     print("📊 Access the dashboard at: http://localhost:5000")
     print("🌐 Dashboard will be accessible to others on your network")
     
     # Run the Flask-SocketIO app
-    port = int(os.environ.get('PORT', 5000))
-    socketio.run(app, host='0.0.0.0', port=port, debug=False, allow_unsafe_werkzeug=True)
+    socketio.run(app, host='0.0.0.0', port=5000, debug=True)

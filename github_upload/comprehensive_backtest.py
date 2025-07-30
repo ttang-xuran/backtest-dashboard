@@ -24,60 +24,51 @@ except ImportError:
     print("Warning: hyperliquid package not available. Will use simulated data.")
 
 class ComprehensiveBacktester:
-    def __init__(self, config_path: str = "config.json", contrarian_mode: bool = True):
-        """Initialize comprehensive backtester with contrarian option"""
+    def __init__(self, config_path: str = "config.json"):
+        """Initialize comprehensive backtester with ALL improvements"""
         self.config = self.load_config(config_path)
-        self.contrarian_mode = contrarian_mode
         
-        # ULTRA-SELECTIVE STRATEGY PARAMETERS (quality over quantity focus)
-        self.position_pct = 0.20        # Increased to 20% per asset (40% total) - fewer but bigger trades
-        self.z_entry = 3.0              # MUCH higher threshold (only extreme mispricings)
-        self.z_exit = 0.8               # Hold longer for mean reversion to work
-        self.lookback = 30              # Shorter for faster signal detection
+        # IMPROVED STRATEGY PARAMETERS (as per PERFORMANCE_IMPROVEMENTS.md)
+        self.position_pct = 0.15        # Reduced from 25% to 15% per asset (30% total vs 50%)
+        self.z_entry = 1.8              # Increased from 1.5 to 1.8 (higher conviction, but tradeable)
+        self.z_exit = 0.5               # Increased from 0.3 to 0.5 (let profits run)
+        self.lookback = 40              # Increased from 20 to 40 (more stable statistics)
         
-        # ULTRA-CONSERVATIVE RISK MANAGEMENT (extreme selectivity)
-        self.stop_loss_pct = 0.015      # 1.5% stop loss (very tight)
-        self.max_holding_minutes = 360  # Maximum 6-hour holding periods (let mean reversion work)
-        self.min_holding_minutes = 180  # Minimum 3 hours (avoid noise completely)
-        self.daily_trade_limit = 2      # Maximum 2 trades per day (EXTREME selectivity)
+        # ENHANCED RISK MANAGEMENT
+        self.stop_loss_pct = 0.03       # 3% stop loss protection
+        self.max_holding_minutes = 120  # Maximum 2-hour holding periods
+        self.min_holding_minutes = 30   # Minimum 30 minutes to avoid noise
+        self.daily_trade_limit = 10     # Maximum 10 trades per day
         
         # IMPROVED TRADING COSTS
         self.fee = 0.0003               # Reduced from 0.05% to 0.03% (achievable with volume)
         
-        # ULTRA-STRICT MARKET REGIME FILTERS (only best conditions)
-        self.volatility_threshold = 0.02    # Very low volatility required (stable conditions only)
-        self.correlation_min = 0.7          # High correlation required (strong relationship)
-        self.beta_min = 0.6                 # Narrow beta range for stability
-        self.beta_max = 1.4                 # Tight range for predictable hedging
+        # MARKET REGIME AWARENESS
+        self.volatility_threshold = 0.05    # Don't trade in very high volatility periods (5% per 30s)
+        self.correlation_min = 0.4          # Minimum BTC-ETH correlation required
+        self.beta_min = 0.3                 # Minimum beta (prevent extreme ratios)
+        self.beta_max = 2.0                 # Maximum beta (prevent extreme ratios)
         
         # TRACKING VARIABLES
         self.trades = []
         self.daily_trades = {}
         self.portfolio_history = []
         
-        # STABLE BETA CALCULATION (for ultra-selective trading)
-        self.beta_lookback = 60         # Shorter for faster signal, but stable
+        # ENHANCED BETA CALCULATION
+        self.beta_lookback = 60         # Longer lookback for stable beta (vs 20)
         
         # SETUP LOGGING
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
         
-        # CONTRARIAN MODE - Now configurable
-        
-        mode_name = "CONTRARIAN" if self.contrarian_mode else "TRADITIONAL"
-        self.logger.info(f"🔄 {mode_name} Statistical Arbitrage Strategy:")
-        
-        if self.contrarian_mode:
-            self.logger.info(f"   🎯 CONTRARIAN MODE: Trading OPPOSITE of traditional signals")
-            self.logger.info(f"   💡 Logic: If traditional strategy loses consistently, do the opposite!")
-            self.logger.info(f"   🚀 Theory: Poor signals → Good reverse signals")
-        else:
-            self.logger.info(f"   📈 TRADITIONAL MODE: Standard mean reversion strategy")
-        
-        self.logger.info(f"   Position Size: {self.position_pct*100}% per asset ({self.position_pct*2*100}% total) [HIGH CONVICTION]")
-        self.logger.info(f"   Entry Z-Score: {self.z_entry} ({'reversed logic' if self.contrarian_mode else 'standard logic'})")
-        self.logger.info(f"   Exit Z-Score: {self.z_exit}")
-        self.logger.info(f"   Daily Trade Limit: {self.daily_trade_limit} [ULTRA SELECTIVE]")
+        self.logger.info("🚀 Comprehensive Backtester Initialized with ALL Improvements:")
+        self.logger.info(f"   Position Size: {self.position_pct*100}% per asset ({self.position_pct*2*100}% total)")
+        self.logger.info(f"   Entry Z-Score: {self.z_entry} (higher conviction)")
+        self.logger.info(f"   Exit Z-Score: {self.z_exit} (let profits run)")
+        self.logger.info(f"   Lookback Period: {self.lookback} (more stable)")
+        self.logger.info(f"   Trading Fee: {self.fee*100:.3f}% (reduced cost)")
+        self.logger.info(f"   Daily Trade Limit: {self.daily_trade_limit}")
+        self.logger.info(f"   Stop Loss: {self.stop_loss_pct*100}%")
 
     def load_config(self, config_path: str) -> dict:
         """Load configuration with fallback to defaults"""
@@ -165,36 +156,23 @@ class ComprehensiveBacktester:
         else:  # normal
             btc_vol, eth_vol, correlation = 0.02, 0.018, 0.75
         
-        # Generate BTC price movements with realistic patterns
+        # Generate BTC price movements
         btc_returns = np.random.normal(0.0001, btc_vol, n)  # Slight positive drift
         btc_prices = [118000]  # Starting price
         
         for ret in btc_returns[1:]:
             btc_prices.append(btc_prices[-1] * (1 + ret))
         
-        # Generate ETH with COINTEGRATION relationship (key for stat arb!)
-        # ETH follows BTC but with mean-reverting spread deviations
-        spread_target = np.log(118000 / 3800)  # Long-term log price ratio
-        current_spread = spread_target
+        # Generate correlated ETH movements
+        eth_returns = []
+        for btc_ret in btc_returns:
+            correlated_component = correlation * btc_ret
+            independent_component = np.sqrt(1 - correlation**2) * np.random.normal(0, eth_vol)
+            eth_returns.append(correlated_component + independent_component)
         
         eth_prices = [3800]  # Starting price
-        eth_returns = [0]
-        
-        for i, btc_ret in enumerate(btc_returns[1:], 1):
-            # Calculate current log spread
-            current_spread = np.log(btc_prices[i] / eth_prices[-1])
-            
-            # STRONG mean reversion force (key for profitability!)
-            spread_deviation = current_spread - spread_target
-            mean_reversion_force = -0.25 * spread_deviation  # 25% reversion per period (much stronger!)
-            
-            # ETH return = BTC correlation + mean reversion + noise
-            correlated_component = correlation * btc_ret
-            independent_noise = np.sqrt(1 - correlation**2) * np.random.normal(0, eth_vol)
-            
-            eth_ret = correlated_component + mean_reversion_force + independent_noise
-            eth_returns.append(eth_ret)
-            eth_prices.append(eth_prices[-1] * (1 + eth_ret))
+        for ret in eth_returns[1:]:
+            eth_prices.append(eth_prices[-1] * (1 + ret))
         
         return pd.DataFrame({
             'timestamp': timestamps,
@@ -501,23 +479,13 @@ class ComprehensiveBacktester:
                 entry_time = timestamp
                 entry_beta = beta
                 
-                # Determine position direction (CONTRARIAN MODE - REVERSED!)
-                if not self.contrarian_mode:
-                    # Traditional logic
-                    if z_score > self.z_entry:
-                        current_position = 'short_btc'  # BTC expensive relative to ETH
-                        position_description = "SHORT BTC, LONG ETH"
-                    else:
-                        current_position = 'long_btc'   # ETH expensive relative to BTC
-                        position_description = "LONG BTC, SHORT ETH"
+                # Determine position direction
+                if z_score > self.z_entry:
+                    current_position = 'short_btc'  # BTC expensive relative to ETH
+                    position_description = "SHORT BTC, LONG ETH"
                 else:
-                    # CONTRARIAN logic - DO THE OPPOSITE!
-                    if z_score > self.z_entry:
-                        current_position = 'long_btc'   # CONTRARIAN: Buy when traditional says sell
-                        position_description = "CONTRARIAN: LONG BTC, SHORT ETH"
-                    else:
-                        current_position = 'short_btc'  # CONTRARIAN: Sell when traditional says buy
-                        position_description = "CONTRARIAN: SHORT BTC, LONG ETH"
+                    current_position = 'long_btc'   # ETH expensive relative to BTC
+                    position_description = "LONG BTC, SHORT ETH"
                 
                 # Update daily trade count
                 date_key = timestamp.strftime('%Y-%m-%d')
@@ -661,19 +629,10 @@ class ComprehensiveBacktester:
             volatility = portfolio_returns.std() * np.sqrt(365 * 24 * 120)  # Annualized
             sharpe_ratio = (total_return * 365) / volatility if volatility > 0 else 0
             
-            # Drawdown analysis (properly fixed)
-            portfolio_values = portfolio_df['portfolio_value'].values
-            running_max = portfolio_df['portfolio_value'].expanding().max().values
-            
-            # Calculate drawdown properly: (current - peak) / peak
-            drawdown_series = (portfolio_values - running_max) / running_max
-            max_drawdown = abs(min(drawdown_series))  # Largest negative drawdown
-            
-            # Debug info
-            peak_value = max(portfolio_values)
-            trough_value = min(portfolio_values)
-            simple_drawdown = (peak_value - trough_value) / peak_value
-            print(f"DEBUG Drawdown - Peak: ${peak_value:.2f}, Trough: ${trough_value:.2f}, Simple DD: {simple_drawdown*100:.2f}%, Calculated DD: {max_drawdown*100:.2f}%")
+            # Drawdown analysis
+            running_max = portfolio_df['portfolio_value'].expanding().max()
+            drawdown = (portfolio_df['portfolio_value'] - running_max) / running_max
+            max_drawdown = drawdown.min()
         else:
             volatility = 0
             sharpe_ratio = 0
