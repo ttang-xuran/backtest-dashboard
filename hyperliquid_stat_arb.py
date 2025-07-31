@@ -2,6 +2,11 @@
 """
 Statistical Arbitrage Trading Bot for BTC/USD and ETH/USD on Hyperliquid
 This is a defensive trading tool for statistical analysis and pairs trading.
+
+SECURITY NOTE:
+- Credentials are loaded from local Windows folder (WSL path: /mnt/c/Users/16473/Desktop/Trading/hyperliquid/)
+- This path is excluded from Git via .gitignore to prevent accidental credential exposure  
+- Never commit credential files to version control
 """
 
 import asyncio
@@ -22,21 +27,42 @@ except ImportError:
 from cointegration_tests import CointegrationTester
 
 class StatisticalArbitrageBot:
-    def __init__(self, config_path: str = "config.json"):
+    def __init__(self, config_path: str = None):
         """
         Initialize the Statistical Arbitrage Bot
         
         Args:
             config_path: Path to configuration file containing API credentials
         """
+        # Set default credential path to Windows hyperliquid folder
+        if config_path is None:
+            config_path = "/mnt/c/Users/16473/Desktop/Trading/hyperliquid/trade_api.json"
+        
         self.config = self.load_config(config_path)
         self.hl = None
         self.btc_symbol = "BTC"
         self.eth_symbol = "ETH"
-        self.position_size = self.config.get("position_size", 0.01)
-        self.z_score_entry = self.config.get("z_score_entry", 2.0)
-        self.z_score_exit = self.config.get("z_score_exit", 0.5)
-        self.lookback_period = self.config.get("lookback_period", 100)
+        # UPDATED PARAMETERS TO MATCH BACKTESTING OPTIMIZATION
+        self.position_size = self.config.get("position_size", 0.20)  # Increased from 0.01 to 0.20 (20% per asset)
+        self.z_score_entry = self.config.get("z_score_entry", 3.0)   # Increased from 2.0 to 3.0 (ultra-selective)
+        self.z_score_exit = self.config.get("z_score_exit", 0.8)     # Increased from 0.5 to 0.8 (let profits run)
+        self.lookback_period = self.config.get("lookback_period", 30) # Reduced from 100 to 30 (faster signals)
+        
+        # CONTRARIAN MODE - Key addition!
+        self.contrarian_mode = self.config.get("contrarian_mode", True)  # Default to contrarian mode
+        
+        # ENHANCED RISK MANAGEMENT (matching backtesting)
+        self.stop_loss_pct = self.config.get("stop_loss_pct", 0.015)      # 1.5% stop loss
+        self.max_holding_minutes = self.config.get("max_holding_minutes", 360)  # 6 hours max
+        self.min_holding_minutes = self.config.get("min_holding_minutes", 180)  # 3 hours min
+        self.daily_trade_limit = self.config.get("daily_trade_limit", 2)  # Max 2 trades per day
+        
+        # MARKET REGIME FILTERS (matching backtesting)
+        self.volatility_threshold = self.config.get("volatility_threshold", 0.02)  # 2% volatility limit
+        self.correlation_min = self.config.get("correlation_min", 0.7)      # High correlation required
+        self.beta_min = self.config.get("beta_min", 0.6)                    # Beta range
+        self.beta_max = self.config.get("beta_max", 1.4)                    # Beta range
+        
         self.price_history = {"BTC": [], "ETH": []}
         self.positions = {"BTC": 0, "ETH": 0}
         self.spread_history = []
@@ -45,6 +71,12 @@ class StatisticalArbitrageBot:
         self.cointegration_validated = False
         self.last_cointegration_check = None
         self.cointegration_check_interval = self.config.get("cointegration_check_hours", 24) * 3600  # seconds
+        
+        # TRADE TRACKING (for risk management)
+        self.entry_time = None
+        self.entry_prices = {"BTC": 0, "ETH": 0}
+        self.daily_trades_count = 0
+        self.last_trade_date = None
         
         # Beta hedging variables
         self.beta_eth_btc = 1.0  # Default beta, will be calculated
@@ -61,27 +93,45 @@ class StatisticalArbitrageBot:
             ]
         )
         self.logger = logging.getLogger(__name__)
+        
+        # Log initialization with contrarian mode info
+        mode_name = "CONTRARIAN" if self.contrarian_mode else "TRADITIONAL"
+        self.logger.info(f"🔄 {mode_name} Statistical Arbitrage Bot initialized")
+        
+        if self.contrarian_mode:
+            self.logger.info("🎯 CONTRARIAN MODE: Trading OPPOSITE of traditional signals")
+            self.logger.info("💡 Logic: High Z-score → Long BTC, Low Z-score → Short BTC")
+        else:
+            self.logger.info("📈 TRADITIONAL MODE: Standard mean reversion strategy")
+        
+        self.logger.info(f"Configuration: Position Size: {self.position_size*100:.1f}% per asset")
+        self.logger.info(f"Z-Entry: {self.z_score_entry} (ultra-selective), Z-Exit: {self.z_score_exit}")
+        self.logger.info(f"Lookback Period: {self.lookback_period}, Daily Trade Limit: {self.daily_trade_limit}")
+        self.logger.info(f"Risk Management: Stop Loss: {self.stop_loss_pct*100:.1f}%, Max Hold: {self.max_holding_minutes}min")
 
     def load_config(self, config_path: str) -> Dict:
         """Load configuration from JSON file"""
         try:
             with open(config_path, 'r') as f:
-                return json.load(f)
+                config = json.load(f)
+                
+            # Validate that required keys exist
+            if "account_address" not in config or "secret_key" not in config:
+                raise ValueError("Config file missing required keys: account_address or secret_key")
+                
+            return config
+            
         except FileNotFoundError:
-            self.logger.error(f"Config file {config_path} not found. Creating template...")
-            template_config = {
-                "account_address": "YOUR_PUBLIC_KEY_HERE",
-                "secret_key": "YOUR_PRIVATE_KEY_HERE",
-                "position_size": 0.01,
-                "z_score_entry": 2.0,
-                "z_score_exit": 0.5,
-                "lookback_period": 100,
-                "max_position_size": 0.1,
-                "stop_loss_pct": 0.05
-            }
-            with open(config_path, 'w') as f:
-                json.dump(template_config, f, indent=4)
-            self.logger.info(f"Template config created at {config_path}. Please update with your credentials.")
+            print(f"❌ Credential file not found at: {config_path}")
+            print("📁 Expected location: C:\\Users\\16473\\Desktop\\Trading\\hyperliquid\\trade_api.json")
+            print("🔑 Please ensure your Hyperliquid credentials are stored in the expected location")
+            print("📋 Required format: {\"account_address\": \"...\", \"secret_key\": \"...\"}")
+            exit(1)
+        except json.JSONDecodeError as e:
+            print(f"❌ Invalid JSON in credential file: {e}")
+            exit(1)
+        except ValueError as e:
+            print(f"❌ {e}")
             exit(1)
 
     async def initialize(self):
@@ -153,6 +203,108 @@ class StatisticalArbitrageBot:
             
             return True
         return False
+    
+    def check_market_regime(self) -> bool:
+        """Check if market conditions are suitable for trading (matching backtesting logic)"""
+        if len(self.returns_history["BTC"]) < 20 or len(self.returns_history["ETH"]) < 20:
+            return True  # Default allow if not enough data
+        
+        # Get recent returns
+        btc_returns = np.array(self.returns_history["BTC"][-20:])
+        eth_returns = np.array(self.returns_history["ETH"][-20:])
+        
+        # Calculate volatility
+        btc_vol = np.std(btc_returns)
+        eth_vol = np.std(eth_returns)
+        avg_volatility = (btc_vol + eth_vol) / 2
+        
+        # Calculate correlation
+        try:
+            correlation = np.corrcoef(btc_returns, eth_returns)[0, 1]
+            if np.isnan(correlation):
+                correlation = 0.75  # Default if calculation fails
+        except:
+            correlation = 0.75
+        
+        # Check beta range
+        beta_in_range = self.beta_min <= abs(self.beta_eth_btc) <= self.beta_max
+        
+        # Market regime checks
+        volatile_regime = avg_volatility > self.volatility_threshold
+        low_correlation = correlation < self.correlation_min
+        
+        tradeable = not volatile_regime and not low_correlation and beta_in_range
+        
+        if not tradeable:
+            if volatile_regime:
+                self.logger.warning(f"High volatility detected: {avg_volatility:.4f} > {self.volatility_threshold}")
+            if low_correlation:
+                self.logger.warning(f"Low correlation detected: {correlation:.4f} < {self.correlation_min}")
+            if not beta_in_range:
+                self.logger.warning(f"Beta out of range: {self.beta_eth_btc:.4f} not in [{self.beta_min}, {self.beta_max}]")
+        
+        return tradeable
+    
+    def check_daily_trade_limit(self) -> bool:
+        """Check if daily trade limit has been reached"""
+        current_date = datetime.now().date()
+        
+        # Reset counter if it's a new day
+        if self.last_trade_date != current_date:
+            self.daily_trades_count = 0
+            self.last_trade_date = current_date
+        
+        if self.daily_trades_count >= self.daily_trade_limit:
+            self.logger.warning(f"Daily trade limit reached: {self.daily_trades_count}/{self.daily_trade_limit}")
+            return False
+        
+        return True
+    
+    def check_holding_time_limits(self) -> Tuple[bool, str]:
+        """Check if holding time limits should trigger exit"""
+        if not self.is_trading or self.entry_time is None:
+            return False, ""
+        
+        holding_minutes = (datetime.now() - self.entry_time).total_seconds() / 60
+        
+        # Minimum holding time check
+        if holding_minutes < self.min_holding_minutes:
+            return False, ""
+        
+        # Maximum holding time check
+        if holding_minutes > self.max_holding_minutes:
+            return True, f"Maximum holding time reached: {holding_minutes:.1f} minutes"
+        
+        return False, ""
+    
+    def check_stop_loss(self) -> Tuple[bool, str]:
+        """Check if stop loss should be triggered"""
+        if not self.is_trading:
+            return False, ""
+        
+        try:
+            current_btc = self.price_history["BTC"][-1]
+            current_eth = self.price_history["ETH"][-1]
+            entry_btc = self.entry_prices["BTC"]
+            entry_eth = self.entry_prices["ETH"]
+            
+            # Calculate current P&L percentage (simplified)
+            if self.positions["BTC"] > 0:  # Long BTC position
+                btc_return = (current_btc - entry_btc) / entry_btc
+                eth_return = -(current_eth - entry_eth) / entry_eth
+            else:  # Short BTC position
+                btc_return = -(current_btc - entry_btc) / entry_btc
+                eth_return = (current_eth - entry_eth) / entry_eth
+            
+            total_return = btc_return + eth_return * abs(self.beta_eth_btc)
+            
+            if total_return < -self.stop_loss_pct:
+                return True, f"Stop loss triggered: {total_return*100:.2f}% < -{self.stop_loss_pct*100:.1f}%"
+        
+        except Exception as e:
+            self.logger.error(f"Error calculating stop loss: {e}")
+        
+        return False, ""
 
     def calculate_spread_statistics(self) -> Tuple[float, float, float]:
         """
@@ -296,68 +448,148 @@ class StatisticalArbitrageBot:
         return self.cointegration_validated
 
     async def execute_arbitrage_strategy(self):
-        """Execute the statistical arbitrage strategy"""
+        """Execute the CONTRARIAN statistical arbitrage strategy (matching backtesting)"""
         if len(self.price_history["BTC"]) < self.lookback_period:
             self.logger.info(f"Not enough price history. Have {len(self.price_history['BTC'])}, need {self.lookback_period}")
             return
 
-        # Validate cointegration before trading
+        # ENHANCED RISK CHECKS (matching backtesting)
+        
+        # 1. Market regime check
+        if not self.check_market_regime():
+            return
+        
+        # 2. Daily trade limit check
+        if not self.check_daily_trade_limit():
+            return
+        
+        # 3. Validate cointegration before trading
         if not await self.validate_cointegration():
             self.logger.warning("Cointegration validation failed - skipping trading")
             return
 
         z_score = self.calculate_z_score()
-        self.logger.info(f"Current Z-score: {z_score:.4f}")
+        self.logger.info(f"Current Z-score: {z_score:.4f} | Market regime: OK | Daily trades: {self.daily_trades_count}/{self.daily_trade_limit}")
 
-        # Entry conditions
+        # EXIT CONDITIONS (enhanced with risk management)
+        if self.is_trading:
+            should_exit = False
+            exit_reason = ""
+            
+            # Check exit conditions in priority order
+            stop_loss_exit, stop_loss_reason = self.check_stop_loss()
+            time_exit, time_reason = self.check_holding_time_limits()
+            
+            if stop_loss_exit:
+                should_exit = True
+                exit_reason = stop_loss_reason
+            elif time_exit:
+                should_exit = True  
+                exit_reason = time_reason
+            elif abs(z_score) < self.z_score_exit:
+                should_exit = True
+                exit_reason = f"Z-score mean reversion: {z_score:.4f} < {self.z_score_exit}"
+            
+            if should_exit:
+                await self.close_positions(exit_reason)
+                return
+
+        # ENTRY CONDITIONS (CONTRARIAN LOGIC!)
         if abs(z_score) > self.z_score_entry and not self.is_trading:
             # Get beta-hedged position sizes
             btc_size, eth_size = self.get_position_sizes(self.position_size)
             
-            if z_score > self.z_score_entry:
-                # Spread is high: BTC overpriced relative to ETH
-                # Short BTC, Long ETH (beta-hedged)
-                self.logger.info(f"Entering trade: SHORT BTC({btc_size:.4f}), LONG ETH({eth_size:.4f}) - Beta: {self.beta_eth_btc:.4f} (Z-score: {z_score:.4f})")
-                
-                btc_success = await self.place_order(self.btc_symbol, "sell", btc_size)
-                eth_success = await self.place_order(self.eth_symbol, "buy", eth_size)
-                
-                if btc_success and eth_success:
-                    self.positions["BTC"] = -btc_size
-                    self.positions["ETH"] = eth_size
-                    self.is_trading = True
+            # Store entry information for risk management
+            self.entry_time = datetime.now()
+            self.entry_prices["BTC"] = self.price_history["BTC"][-1]
+            self.entry_prices["ETH"] = self.price_history["ETH"][-1]
+            
+            if not self.contrarian_mode:
+                # TRADITIONAL LOGIC
+                if z_score > self.z_score_entry:
+                    # Traditional: BTC overpriced → Short BTC, Long ETH
+                    self.logger.info(f"TRADITIONAL: Entering SHORT BTC({btc_size:.4f}), LONG ETH({eth_size:.4f}) - Beta: {self.beta_eth_btc:.4f} (Z-score: {z_score:.4f})")
+                    btc_success = await self.place_order(self.btc_symbol, "sell", btc_size)
+                    eth_success = await self.place_order(self.eth_symbol, "buy", eth_size)
                     
-            elif z_score < -self.z_score_entry:
-                # Spread is low: ETH overpriced relative to BTC
-                # Long BTC, Short ETH (beta-hedged)
-                self.logger.info(f"Entering trade: LONG BTC({btc_size:.4f}), SHORT ETH({eth_size:.4f}) - Beta: {self.beta_eth_btc:.4f} (Z-score: {z_score:.4f})")
-                
-                btc_success = await self.place_order(self.btc_symbol, "buy", btc_size)
-                eth_success = await self.place_order(self.eth_symbol, "sell", eth_size)
-                
-                if btc_success and eth_success:
-                    self.positions["BTC"] = btc_size
-                    self.positions["ETH"] = -eth_size
-                    self.is_trading = True
-
-        # Exit conditions
-        elif abs(z_score) < self.z_score_exit and self.is_trading:
-            self.logger.info(f"Exiting trade (Z-score: {z_score:.4f})")
-            
-            # Close positions
-            if self.positions["BTC"] > 0:
-                await self.place_order(self.btc_symbol, "sell", abs(self.positions["BTC"]))
-            elif self.positions["BTC"] < 0:
-                await self.place_order(self.btc_symbol, "buy", abs(self.positions["BTC"]))
-                
-            if self.positions["ETH"] > 0:
-                await self.place_order(self.eth_symbol, "sell", abs(self.positions["ETH"]))
-            elif self.positions["ETH"] < 0:
-                await self.place_order(self.eth_symbol, "buy", abs(self.positions["ETH"]))
-            
-            # Reset positions
-            self.positions = {"BTC": 0, "ETH": 0}
+                    if btc_success and eth_success:
+                        self.positions["BTC"] = -btc_size
+                        self.positions["ETH"] = eth_size
+                        self.is_trading = True
+                        self.daily_trades_count += 1
+                        
+                elif z_score < -self.z_score_entry:
+                    # Traditional: BTC underpriced → Long BTC, Short ETH
+                    self.logger.info(f"TRADITIONAL: Entering LONG BTC({btc_size:.4f}), SHORT ETH({eth_size:.4f}) - Beta: {self.beta_eth_btc:.4f} (Z-score: {z_score:.4f})")
+                    btc_success = await self.place_order(self.btc_symbol, "buy", btc_size)
+                    eth_success = await self.place_order(self.eth_symbol, "sell", eth_size)
+                    
+                    if btc_success and eth_success:
+                        self.positions["BTC"] = btc_size
+                        self.positions["ETH"] = -eth_size
+                        self.is_trading = True
+                        self.daily_trades_count += 1
+                        
+            else:
+                # CONTRARIAN LOGIC - DO THE OPPOSITE!
+                if z_score > self.z_score_entry:
+                    # Contrarian: High Z-score → Long BTC (opposite of traditional)
+                    self.logger.info(f"CONTRARIAN: Entering LONG BTC({btc_size:.4f}), SHORT ETH({eth_size:.4f}) - Beta: {self.beta_eth_btc:.4f} (Z-score: {z_score:.4f})")
+                    btc_success = await self.place_order(self.btc_symbol, "buy", btc_size)
+                    eth_success = await self.place_order(self.eth_symbol, "sell", eth_size)
+                    
+                    if btc_success and eth_success:
+                        self.positions["BTC"] = btc_size
+                        self.positions["ETH"] = -eth_size
+                        self.is_trading = True
+                        self.daily_trades_count += 1
+                        
+                elif z_score < -self.z_score_entry:
+                    # Contrarian: Low Z-score → Short BTC (opposite of traditional) 
+                    self.logger.info(f"CONTRARIAN: Entering SHORT BTC({btc_size:.4f}), LONG ETH({eth_size:.4f}) - Beta: {self.beta_eth_btc:.4f} (Z-score: {z_score:.4f})")
+                    btc_success = await self.place_order(self.btc_symbol, "sell", btc_size)
+                    eth_success = await self.place_order(self.eth_symbol, "buy", eth_size)
+                    
+                    if btc_success and eth_success:
+                        self.positions["BTC"] = -btc_size
+                        self.positions["ETH"] = eth_size
+                        self.is_trading = True
+                        self.daily_trades_count += 1
+    
+    async def close_positions(self, reason: str):
+        """Close all positions with specified reason"""
+        if not self.is_trading:
+            return
+        
+        self.logger.info(f"Closing positions: {reason}")
+        
+        # Close BTC position
+        if self.positions["BTC"] > 0:
+            btc_success = await self.place_order(self.btc_symbol, "sell", abs(self.positions["BTC"]))
+        elif self.positions["BTC"] < 0:
+            btc_success = await self.place_order(self.btc_symbol, "buy", abs(self.positions["BTC"]))
+        else:
+            btc_success = True
+        
+        # Close ETH position
+        if self.positions["ETH"] > 0:
+            eth_success = await self.place_order(self.eth_symbol, "sell", abs(self.positions["ETH"]))
+        elif self.positions["ETH"] < 0:
+            eth_success = await self.place_order(self.eth_symbol, "buy", abs(self.positions["ETH"]))
+        else:
+            eth_success = True
+        
+        if btc_success and eth_success:
+            # Reset position tracking
+            self.positions["BTC"] = 0
+            self.positions["ETH"] = 0
             self.is_trading = False
+            self.entry_time = None
+            self.entry_prices = {"BTC": 0, "ETH": 0}
+            
+            self.logger.info("Positions closed successfully")
+        else:
+            self.logger.error("Failed to close some positions - manual intervention may be required")
 
     async def run_strategy(self, duration_hours: int = 24):
         """
@@ -401,6 +633,10 @@ class StatisticalArbitrageBot:
                 await asyncio.sleep(60)  # Wait longer on error
         
         self.logger.info("Strategy execution completed")
+        
+        # Properly close the connection
+        if self.hl:
+            await self.hl.close()
 
 def main():
     """Main function to run the statistical arbitrage bot"""

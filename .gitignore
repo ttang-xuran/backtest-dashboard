@@ -15,6 +15,11 @@ config_real.json
 *_credentials.json
 .env.local
 private_config.json
+config.json
+trade_api.json
+**/hyperliquid/**
+# Never commit any credential files
+**/Trading/hyperliquid/**
 
 # IDE
 .vscode/
